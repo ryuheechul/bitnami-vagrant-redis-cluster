@@ -1,0 +1,38 @@
+---
+- name: Provision PIP # necessary for `docker_container` task type
+  hosts: vagrants
+  become: yes
+  tasks:
+    - name: install pip
+      apt:
+        update_cache: true
+        name: python3-pip
+- name: Provision Redis via Docker
+  hosts: vagrants
+  tasks:
+    - name: pip install docker
+      pip:
+        name: docker
+    - name: run redis
+      docker_container:
+        name: redis
+        network_mode: host # necessary to reach other redis hosts
+        image: docker.io/bitnami/redis-cluster:6.0-debian-10
+        volumes:
+          - /bitnami/redis/data
+        env:
+          REDIS_PASSWORD: bitnami
+          REDIS_NODES: redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+- name: Configure Redis Cluster
+  hosts: redis-init-job
+  tasks:
+    - name: redis-cluster-init
+      docker_container:
+        name: redis-init
+        network_mode: host
+        image: docker.io/bitnami/redis-cluster:6.0-debian-10
+        env:
+          REDISCLI_AUTH: bitnami
+          REDIS_CLUSTER_REPLICAS: "1"
+          REDIS_NODES: redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
+          REDIS_CLUSTER_CREATOR: "yes"

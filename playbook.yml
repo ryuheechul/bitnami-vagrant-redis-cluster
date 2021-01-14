@@ -4,16 +4,20 @@
   become: yes
   tasks:
     - name: install pip
+      register: install_pip
       apt:
         update_cache: true
         name: python3-pip
 - name: Provision Redis via Docker
   hosts: vagrants
-  tasks:
+  pre_tasks:
     - name: pip install docker
+      when: install_pip.changed
       pip:
         name: docker
+  tasks:
     - name: run redis
+      register: run_redis
       docker_container:
         name: redis
         network_mode: host # necessary to reach other redis hosts
@@ -27,6 +31,7 @@
   hosts: redis-init-job
   tasks:
     - name: redis-cluster-init
+      when: run_redis.changed
       docker_container:
         name: redis-init
         network_mode: host

@@ -3,7 +3,7 @@
   hosts: vagrants
   become: yes
   tasks:
-    - name: install pip
+    - name: Install Pip
       register: install_pip
       apt:
         update_cache: true
@@ -11,33 +11,42 @@
 - name: Provision Redis via Docker
   hosts: vagrants
   pre_tasks:
-    - name: pip install docker
+    - name: Pip Install Docker
       when: install_pip.changed
       pip:
         name: docker
   tasks:
-    - name: run redis
+    - name: Run Redis
       register: run_redis
       docker_container:
         name: redis
         network_mode: host # necessary to reach other redis hosts
-        image: docker.io/bitnami/redis-cluster:6.0-debian-10
+        image: docker.io/bitnami/redis-cluster:6.0.10-debian-10-r4
         volumes:
           - /bitnami/redis/data
         env:
           REDIS_PASSWORD: bitnami
           REDIS_NODES: redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
 - name: Configure Redis Cluster
-  hosts: redis-init-job
+  hosts: vagrants[0] # we just need any of 6 to run a job
   tasks:
-    - name: redis-cluster-init
+    - name: Redis Cluster Init
       when: run_redis.changed
+      register: init_container_output
       docker_container:
         name: redis-init
+        image: docker.io/bitnami/redis-cluster:6.0.10-debian-10-r4
         network_mode: host
-        image: docker.io/bitnami/redis-cluster:6.0-debian-10
+        detach: no
+        timeout: 120
+        container_default_behavior: no_defaults
+        log_driver: json-file
+        output_logs: yes
         env:
           REDISCLI_AUTH: bitnami
           REDIS_CLUSTER_REPLICAS: "1"
           REDIS_NODES: redis-node-0 redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5
           REDIS_CLUSTER_CREATOR: "yes"
+    - name: Get its output
+      debug:
+        msg: "Docker said: {{ init_container_output.ansible_facts.docker_container.Output }}"

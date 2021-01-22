@@ -28,6 +28,7 @@ Vagrant.configure("2") do |config|
   RANGE.each do |i|
     config.vm.define "node-#{i}" do |node|
       node.vm.network "private_network", ip: "#{IP_PREFIX}#{i}"
+      node.vm.network "forwarded_port", id: "ssh", host: 2200+i, guest: 22
       node.vm.post_up_message = "Hello, my IP is #{IP_PREFIX}#{i}"
     end
   end
